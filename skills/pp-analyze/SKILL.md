@@ -14,7 +14,9 @@ TOKEN="${PP_TOKEN:-$(cat ~/.config/portfolio-performance/rest-token 2>/dev/null)
 auth=(-H "Authorization: Bearer $TOKEN")
 ```
 
-Both endpoints value everything in a **reporting currency** (default: the file's base currency; override with `?currency=`). A currency pair with no exchange-rate series converts **1:1** — the same silent fallback the app itself uses, so a nonsense currency won't error, it'll just be wrong. Money is always `{"value":…,"currency":…}`; weights and returns are **fractions, not percentages**.
+Both endpoints value everything in a **reporting currency** (default: the file's base currency; override with `?currency=`) and echo it back as `reportingCurrency` on the response envelope. A currency pair with no exchange-rate series converts **1:1** — the same silent fallback the app itself uses, so a nonsense currency won't error, it'll just be wrong. Money is always `{"value":…,"currency":…}`; weights and returns are **fractions, not percentages**.
+
+Three currency fields, three meanings — don't conflate them: **`reportingCurrency`** is what a whole report was converted into, **`currency`** inside a money object is what that one amount is in, and **`currencyCode`** on an instrument or cash account is the entity's own declared currency.
 
 ## Holdings — the statement of assets at a date
 
@@ -23,7 +25,7 @@ curl -fsS "${auth[@]}" "$BASE/v1/files/main/holdings?date=2026-07-20"
 ```
 
 ```json
-{"date":"2026-07-20","totalAssets":{"value":1600,"currency":"EUR"},
+{"date":"2026-07-20","reportingCurrency":"EUR","totalAssets":{"value":1600,"currency":"EUR"},
  "items":[
    {"type":"instrument","uuid":"8a1e…","name":"Apple Inc.","shares":10,
     "price":{"value":110.5,"currency":"USD","date":"2026-07-17"},
@@ -50,7 +52,8 @@ curl -fsS "${auth[@]}" \
 ```
 
 ```json
-{"openingDate":"2024-01-01","closingDate":"2024-12-31","currency":"EUR",
+{"openingDate":"2024-01-01","closingDate":"2024-12-31",
+ "reportingCurrency":"EUR","costMethod":"fifo",
  "ttwror":0.0723,"irr":0.0685,
  "breakdown":{
    "openingValue":{"value":100000,"currency":"EUR"},
@@ -81,7 +84,7 @@ openingValue + unrealizedCapitalGains + realizedCapitalGains + income
 
 - **`fees` and `taxes` are negative** (positive only on a net refund).
 - **`netDeposits`** is the external capital flow (deposits + inbound deliveries − removals − outbound deliveries). It is **not** part of the performance-driven change — it's there to make the reconciliation balance. Don't add it into "gains."
-- **`costMethod`** (`fifo` default, or `moving-average`) only changes how gains split between `realizedCapitalGains` and `unrealizedCapitalGains` — it does **not** change their sum, nor the returns.
+- **`costMethod`** (`fifo` default, or `moving-average`) only changes how gains split between `realizedCapitalGains` and `unrealizedCapitalGains` — it does **not** change their sum, nor the returns. The response echoes the method it used, so a stored payload stays interpretable.
 
 ### Dates are valuation snapshots, not a record range
 
