@@ -5,7 +5,7 @@ description: Compute portfolio valuations and returns from a running Portfolio P
 
 # pp-analyze — holdings valuation and performance
 
-The two **computed** endpoints of the Portfolio Performance REST API. **Prerequisite:** a paired token and the `PP_PORT`/`PP_TOKEN` convention — use **pp-connect** first on a `401`. The shared model, money-as-object and fractions-not-percentages conventions, and the error table are in [pp-connect/reference.md](../pp-connect/reference.md).
+The **computed** endpoints of the Portfolio Performance REST API. **Prerequisite:** a paired token and the `PP_PORT`/`PP_TOKEN` convention — use **pp-connect** first on a `401`. The shared model, money-as-object and fractions-not-percentages conventions, and the error table are in [pp-connect/reference.md](../pp-connect/reference.md).
 
 ```bash
 PP_PORT="${PP_PORT:-5712}"
@@ -14,9 +14,9 @@ TOKEN="${PP_TOKEN:-$(cat ~/.config/portfolio-performance/rest-token 2>/dev/null)
 auth=(-H "Authorization: Bearer $TOKEN")
 ```
 
-Both endpoints value everything in a **reporting currency** (default: the file's base currency; override with `?currency=`) and echo it back as `reportingCurrency` on the response envelope. A currency pair with no exchange-rate series converts **1:1** — the same silent fallback the app itself uses, so a nonsense currency won't error, it'll just be wrong. Money is always `{"value":…,"currency":…}`; weights and returns are **fractions, not percentages**.
+All three endpoints value everything in a **reporting currency** (default: the file's base currency; override with `?reportingCurrency=`) and echo it back under that same name on the response envelope — request and response agree, so you can send back what you read. A currency pair with no exchange-rate series converts **1:1** — the same silent fallback the app itself uses, so a nonsense currency won't error, it'll just be wrong. Money is always `{"value":…,"currency":…}`; weights and returns are **fractions, not percentages**.
 
-Three currency fields, three meanings — don't conflate them: **`reportingCurrency`** is what a whole report was converted into, **`currency`** inside a money object is what that one amount is in, and **`currencyCode`** on an instrument or cash account is the entity's own declared currency.
+Three currency fields, three meanings — don't conflate them: **`reportingCurrency`** is what a whole report was converted into (and the query parameter that sets it), **`currency`** inside a money object is what that one amount is in, and **`currencyCode`** on an instrument or cash account is the entity's own declared currency.
 
 ## Holdings — the statement of assets at a date
 
@@ -48,7 +48,7 @@ curl -fsS "${auth[@]}" "$BASE/v1/files/main/holdings?date=2026-07-20"
 ```bash
 curl -fsS "${auth[@]}" \
   "$BASE/v1/files/main/performance?openingDate=2024-01-01&closingDate=2024-12-31"
-# optional: &currency=EUR &costMethod=fifo|moving-average
+# optional: &reportingCurrency=EUR &costMethod=fifo|moving-average
 ```
 
 ```json
@@ -98,7 +98,7 @@ openingValue + unrealizedCapitalGains + realizedCapitalGains + income
 curl -fsS "${auth[@]}" \
   "$BASE/v1/files/main/performance/instruments?openingDate=2025-01-01&closingDate=2025-12-31&metrics=valuation,gains"
 # one instrument: .../performance/instruments/{uuid}
-# optional: &currency= &costMethod=fifo|moving-average &taxesAndFees=included|excluded &metrics=
+# optional: &reportingCurrency= &costMethod=fifo|moving-average &taxesAndFees=included|excluded &metrics=
 ```
 
 ```json
