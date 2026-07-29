@@ -1,6 +1,6 @@
 ---
 name: pp-analyze
-description: Compute portfolio valuations and returns from a running Portfolio Performance desktop app over its local REST API — the statement of assets (holdings valued at a date, with weights) and performance over an interval (time-weighted return TTWROR, money-weighted return IRR, and a signed value-change breakdown). Use when the task asks for portfolio value, asset allocation, holdings/positions valued at a date, total assets, returns, performance, gains, or how a portfolio changed over a period. Requires a paired token (see pp-connect).
+description: Compute portfolio valuations and returns from a running Portfolio Performance desktop app over its local REST API — the statement of assets (holdings valued at a date, with weights), performance over an interval (time-weighted return TTWROR, money-weighted return IRR, and a signed value-change breakdown), and the same interval broken down per instrument (valuation, capital gains, dividends, fees, IRR, TTWROR, volatility and drawdown). Use when the task asks for portfolio value, asset allocation, holdings/positions valued at a date, total assets, returns, performance, gains, cost basis, dividends, fees, risk or volatility, best and worst positions, or how a portfolio or a single instrument changed over a period. Requires a paired token (see pp-connect).
 ---
 
 # pp-analyze — holdings valuation and performance
@@ -92,6 +92,49 @@ openingValue + unrealizedCapitalGains + realizedCapitalGains + income
 - The opening balance is measured **as of the end of `openingDate`**: activity dated exactly on `openingDate` belongs to the opening balance, not the period's flows; activity on `closingDate` is inside the period.
 - `closingDate` (optional, default today) must be **strictly after** `openingDate` — an empty or inverted range is `400 invalid-range`.
 
+## Per-instrument performance — the same report, broken down
+
+```bash
+curl -fsS "${auth[@]}" \
+  "$BASE/v1/files/main/performance/instruments?openingDate=2025-01-01&closingDate=2025-12-31&metrics=valuation,gains"
+# one instrument: .../performance/instruments/{uuid}
+# optional: &currency= &costMethod=fifo|moving-average &taxesAndFees=included|excluded &metrics=
+```
+
+```json
+{"openingDate":"2025-01-01","closingDate":"2025-12-31","reportingCurrency":"EUR",
+ "costMethod":"fifo","taxesAndFees":"included","metrics":["valuation","gains"],
+ "items":[
+   {"uuid":"5c1a…","name":"iShares Core MSCI World","currencyCode":"USD",
+    "valuation":{"shares":152.5,
+      "openingValue":{"value":15200,"currency":"EUR"},
+      "closingValue":{"value":18432.1,"currency":"EUR"},
+      "periodCostBasis":{"value":16218.9,"currency":"EUR"}},
+    "gains":{"realizedCapitalGains":{"value":0,"currency":"EUR"},
+      "realizedCurrencyComponent":{"value":0,"currency":"EUR"},
+      "unrealizedCapitalGains":{"value":2213.2,"currency":"EUR"},
+      "unrealizedCurrencyComponent":{"value":410,"currency":"EUR"}}}]}
+```
+
+Same interval semantics and same six echoes as the aggregate. The item route returns one element's fields merged into that context, without `items`.
+
+### `?metrics=` is the cost lever — use it
+
+Seven groups: `valuation gains income expenses moneyWeighted timeWeighted risk`. **Default is all seven.** `timeWeighted` and `risk` are backed by a *full daily valuation series per instrument*; the other five are cheap linear passes. On a large file with a long interval, the default request is slow and there is no pagination.
+
+**So: ask for what you need.** `?metrics=valuation,gains` for "what am I holding and what has it made"; add `timeWeighted` only when you actually want TTWROR per position. Requesting `timeWeighted` and `risk` together costs no more than either alone — they share one series. An unselected group is an **absent key**, not a null; an unknown name is `400 invalid-value`.
+
+### Reading the fields
+
+- **`fees` and `taxes` here are positive magnitudes** — the opposite of the aggregate breakdown's signed `-120`. That breakdown has to add up by addition; this resource publishes no such sum, so it reports the charges as charged.
+- **`periodCostBasis` is period-relative, not what you paid.** A lot held since before `openingDate` enters at its *valuation on that date*. Shares bought in 2020 for €5,000 and worth €14,000 on 2025-01-01 show €14,000 here — the lifetime gain is **not** derivable from this endpoint. Don't present it as purchase price.
+- **`*CurrencyComponent` is contained in the adjacent gains figure, not additional to it.** `unrealizedCurrencyComponent` is the FX share *of* `unrealizedCapitalGains`. **Never add the two** — that double-counts. (This is the opposite arithmetic from the aggregate's `currencyGains`, which *is* a separate additive term.)
+- **`closingValue − periodCostBasis = unrealizedCapitalGains`** holds exactly, under either `taxesAndFees` setting. `included` (default) puts the fees and taxes embedded in a purchase into the basis; `excluded` leaves them out. It moves the basis and the gains together, and never touches `expenses` or the returns.
+- **`risk.maxDrawdown` is a positive fraction** (`0.231` = a 23.1 % drawdown). **`longestDrawdownDays` is the longest stretch below a previous peak — not the duration of the deepest drawdown.**
+- **`currencyCode` is the instrument's own currency; `reportingCurrency` is what every amount was converted into.** On the item route they sit side by side.
+- A position **sold during the period is still listed**, with `shares: 0` and zero `closingValue` but real `realizedCapitalGains`, dividends and fees. Don't filter it out — it is part of the period's performance. Instruments never held and never traded don't appear at all.
+- The item route has **two 404s**: `not-found` (no such instrument — fix the id) and `no-activity-in-period` (it exists, but nothing was held or traded in the interval — report that, don't retry).
+
 ## Worked examples
 
 **Asset allocation today (name → weight %):**
@@ -107,6 +150,15 @@ curl -fsS "${auth[@]}" "$BASE/v1/files/main/holdings" \
 curl -fsS "${auth[@]}" \
   "$BASE/v1/files/main/performance?openingDate=2026-01-01" \
 | jq -r 'if .ttwror==null then "n/a" else "\((.ttwror*100*100|round)/100) % TTWROR" end'
+```
+
+**Best and worst positions this year, without paying for a daily series:**
+
+```bash
+curl -fsS "${auth[@]}" \
+  "$BASE/v1/files/main/performance/instruments?openingDate=2026-01-01&metrics=valuation,gains" \
+| jq -r '.items[] | "\(.gains.unrealizedCapitalGains.value + .gains.realizedCapitalGains.value)\t\(.name)"' \
+| sort -rn
 ```
 
 (No `jq`? The payloads are small, flat JSON — parse them directly.)
