@@ -37,6 +37,7 @@ curl -fsS "${auth[@]}" "$BASE/v1/files/main/holdings?date=2026-07-20"
 
 - **`date`** (optional, default today) is the valuation date. Future dates are allowed and value at the last known prices.
 - **Every line is a holding** — instrument positions and cash-account balances, uniformly. `type` is `instrument` or `cash-account`.
+- **So "my biggest holdings" ranks both.** Rank on `weight` across all `items` and quote `totalAssets` as the denominator. A cash account can outweigh every security — dropping it silently doesn't just omit a line, it shifts every rank below it. If you do restrict the ranking to securities, say so in the answer.
 - **Instrument positions with zero shares at the date are omitted; cash accounts always appear**, even at a zero balance.
 - **`weight`** is the fraction (0–1) of `totalAssets` — `0.6875` = 68.75 %. Weights across items sum to ~1.
 - **`price.date` reveals staleness.** Each instrument is valued at the latest price **on or before** the date — which may be well earlier (a stale quote, or a fallback to the last transaction's price). If `price.date` is far from your valuation date, the valuation is old; surface that rather than presenting it as current.
