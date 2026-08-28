@@ -1,9 +1,9 @@
 ---
 name: pp-analyze
-description: Compute portfolio valuations and returns from a running Portfolio Performance desktop app over its local REST API — the statement of assets (holdings valued at a date, with weights), performance over an interval (time-weighted return TTWROR, money-weighted return IRR, and a signed value-change breakdown), and the same interval broken down per instrument (valuation, capital gains, dividends, fees, IRR, TTWROR, volatility and drawdown). Use when the task asks for portfolio value, asset allocation, holdings/positions valued at a date, total assets, returns, performance, gains, cost basis, dividends, fees, risk or volatility, best and worst positions, or how a portfolio or a single instrument changed over a period. Requires a paired token (see pp-connect).
+description: Compute portfolio valuations and returns from a running Portfolio Performance desktop app over its local REST API — the statement of assets (holdings valued at a date, with weights), performance over an interval (time-weighted return TTWROR, money-weighted return IRR, and a signed value-change breakdown), the same interval broken down per instrument (valuation, capital gains, dividends, fees, IRR, TTWROR, volatility and drawdown), and matched trades (buy/sell pairs with profit and loss, holding period and IRR, open or closed). Use when the task asks for portfolio value, asset allocation, holdings/positions valued at a date, total assets, returns, performance, gains, cost basis, dividends, fees, risk or volatility, best and worst positions, trades or round trips, realized or unrealized profit and loss per trade, winning and losing trades, holding periods, open positions, or how a portfolio or a single instrument changed over a period. Requires a paired token (see pp-connect).
 ---
 
-# pp-analyze — holdings valuation and performance
+# pp-analyze — holdings valuation, performance and trades
 
 The **computed** endpoints of the Portfolio Performance REST API. **Prerequisite:** a paired token and the `PP_PORT`/`PP_TOKEN` convention — use **pp-connect** first on a `401`. The shared model, money-as-object and fractions-not-percentages conventions, and the error table are in [pp-connect/reference.md](../pp-connect/reference.md).
 
@@ -14,7 +14,7 @@ TOKEN="${PP_TOKEN:-$(cat ~/.config/portfolio-performance/rest-token 2>/dev/null)
 auth=(-H "Authorization: Bearer $TOKEN")
 ```
 
-All three endpoints value everything in a **reporting currency** (default: the file's base currency; override with `?reportingCurrency=`) and echo it back under that same name on the response envelope — request and response agree, so you can send back what you read. A currency pair with no exchange-rate series converts **1:1** — the same silent fallback the app itself uses, so a nonsense currency won't error, it'll just be wrong. Money is always `{"value":…,"currency":…}`; weights and returns are **fractions, not percentages**.
+Every endpoint here values everything in a **reporting currency** (default: the file's base currency; override with `?reportingCurrency=`) and echo it back under that same name on the response envelope — request and response agree, so you can send back what you read. A currency pair with no exchange-rate series converts **1:1** — the same silent fallback the app itself uses, so a nonsense currency won't error, it'll just be wrong. Money is always `{"value":…,"currency":…}`; weights and returns are **fractions, not percentages**.
 
 Three currency fields, three meanings — don't conflate them: **`reportingCurrency`** is what a whole report was converted into (and the query parameter that sets it), **`currency`** inside a money object is what that one amount is in, and **`currencyCode`** on an instrument or cash account is the entity's own declared currency.
 
@@ -136,6 +136,74 @@ Seven groups: `valuation gains income expenses moneyWeighted timeWeighted risk`.
 - A position **sold during the period is still listed**, with `shares: 0` and zero `closingValue` but real `realizedCapitalGains`, dividends and fees. Don't filter it out — it is part of the period's performance. Instruments never held and never traded don't appear at all.
 - The item route has **two 404s**: `not-found` (no such instrument — fix the id) and `no-activity-in-period` (it exists, but nothing was held or traded in the interval — report that, don't retry).
 
+## Trades — matched buy/sell pairs
+
+```bash
+curl -fsS "${auth[@]}" "$BASE/v1/files/main/trades?status=closed"
+# one instrument: .../instruments/{uuid}/trades
+# optional: &grouping=combined|per-lot &costMethod= &taxesAndFees= &reportingCurrency=
+```
+
+```json
+{"reportingCurrency":"EUR","costMethod":"fifo","taxesAndFees":"included",
+ "grouping":"combined","valuationDate":"2026-08-27","status":["closed"],
+ "warnings":[],
+ "items":[
+   {"status":"closed","direction":"long",
+    "instrument":{"uuid":"8a1e…","name":"Apple Inc.","currencyCode":"USD"},
+    "portfolio":{"uuid":"1d3f…","name":"Broker Depot"},
+    "start":"2024-03-04T00:00:00","end":"2025-11-18T00:00:00",
+    "shares":10,"transactionCount":2,
+    "entryValue":{"value":1010.5,"currency":"EUR"},
+    "exitValue":{"value":1320,"currency":"EUR"},
+    "profitLoss":{"value":309.5,"currency":"EUR"},
+    "holdingPeriodDays":624,"irr":0.1782,"return":0.3063,"note":"rebalancing"}]}
+```
+
+A trade is a set of purchases matched against the sales that closed them, within one securities account. It is **computed, not stored** — no `uuid`, no `/trades/{id}`, no writes; to change a trade, change the transactions behind it (see [reference › Computed collections](../pp-connect/reference.md#computed-collections)). Sorted by instrument name, and within one instrument in the order the lots were matched, which is chronological.
+
+### Never skip `warnings`
+
+A security whose transactions don't reconcile — a sale covering more shares than were held, a transfer of shares that aren't there — contributes **no trades** and is listed in `warnings` instead. The request still succeeds with `200`, because one unreconcilable security must not make the resource unreadable for the other four hundred. A non-empty `warnings` therefore means **the list you got is incomplete**: name the affected instruments in your answer rather than reporting a total as if it covered everything.
+
+A sale into an account holding nothing is *not* such a case — it opens a short position, reported as an open trade with `direction: "short"`.
+
+### An open trade is a valuation, not a result
+
+`status` is `open` or `closed`; `?status=` filters it (comma-separated, both by default) and the response echoes the selection.
+
+- A **closed** trade's `exitValue`, `profitLoss` and `return` are what actually happened.
+- An **open** trade has `end: null`, and those same three fields are a **valuation at the market price of `valuationDate`** (echoed on the envelope). Its `holdingPeriodDays` runs to that date as well — so the same open trade legitimately reports different numbers tomorrow.
+
+Don't add the two kinds into a single "profit" figure without saying which part is realized. For "what have I actually made", ask for `?status=closed`.
+
+### `direction` cannot be inferred from the numbers
+
+`shares` is positive either way, so read the field:
+
+- `long` — opened with a purchase; `profitLoss = exitValue − entryValue`.
+- `short` — opened with a sale; `profitLoss = entryValue − exitValue`, the reverse.
+
+### The three knobs, and what each does *not* touch
+
+- **`grouping`** (`combined` default, or `per-lot`) — how matched lots are gathered into trades: `combined` makes one trade of the acquisitions that a sale closed, `per-lot` reports each acquisition as its own trade. It is **not** a matching strategy. Matching is always **FIFO**; there is no way to ask this API for LIFO.
+- **`costMethod`** (`fifo` default, or `moving-average`) — moves `entryValue`, `profitLoss` and `return` onto the moving average cost of the shares. It does **not** move `irr`, which comes from the actual cash flows and has no moving-average counterpart, nor `exitValue`, which is what the shares realized or are worth. A `moving-average` request thus returns a deliberately mixed-basis item.
+- **`taxesAndFees`** (`included` default, or `excluded`) — moves `entryValue`, `exitValue` and `profitLoss` **together**, so the subtraction above keeps holding. It leaves `irr` and `return` alone, and has no effect on an open trade's exit side: a valuation has incurred no charges.
+
+**The `null`s come as a set.** `entryValue`, `profitLoss` and `return` are `null` **together** wherever the moving average cost is undefined — always for a `short` trade, which was never acquired. `exitValue` and `irr` stay defined. `irr` and `return` are both fractions (`0.1782` = 17.82 %), but `irr` is **annualized** and `return` is not — don't compare them across trades of different lengths. Either can be `null` on its own when the model can't define it.
+
+### Fields worth reading carefully
+
+- **`holdingPeriodDays` is a share-weighted average**, not `end − start` — they diverge as soon as a position was accumulated or partly sold.
+- **`transactionCount`** — 2 for a clean buy and sell, more for an accumulated or partially sold position.
+- **`start` / `end` are local, offset-less date-times** (`"2024-03-04T00:00:00"`); don't read them as UTC.
+- **`instrument` and `portfolio` are references** — join by `uuid` to `instruments/{uuid}` and `investment-accounts/{uuid}` (that's **pp-inspect**). `instrument.currencyCode` is the instrument's own currency, not what the amounts were converted into.
+- **`note`** is the note on the trade's *last* transaction — the closing one for a closed trade, the most recent one for an open trade. Omitted when there is none.
+
+### The instrument route answers with an empty list, not a 404
+
+`…/instruments/{uuid}/trades` on an instrument that exists but was never traded is `200` with `items: []`. That is deliberately unlike `…/performance/instruments/{uuid}`, which 404s `no-activity-in-period`: there the uuid names the single item the response consists of, here it names the collection's owner. A `404` from the trades route means the **instrument** is unknown — fix the id, don't report "no trades".
+
 ## Worked examples
 
 **Asset allocation today (name → weight %):**
@@ -159,6 +227,16 @@ curl -fsS "${auth[@]}" \
 curl -fsS "${auth[@]}" \
   "$BASE/v1/files/main/performance/instruments?openingDate=2026-01-01&metrics=valuation,gains" \
 | jq -r '.items[] | "\(.gains.unrealizedCapitalGains.value + .gains.realizedCapitalGains.value)\t\(.name)"' \
+| sort -rn
+```
+
+**Biggest realized winners and losers — checking `warnings` first:**
+
+```bash
+T=$(curl -fsS "${auth[@]}" "$BASE/v1/files/main/trades?status=closed")
+printf '%s' "$T" | jq -r '.warnings[] | "SKIPPED \(.instrument.name): \(.message)"'
+printf '%s' "$T" \
+| jq -r '.items[] | "\(.profitLoss.value)\t\(.instrument.name)\t\(.holdingPeriodDays)d"' \
 | sort -rn
 ```
 

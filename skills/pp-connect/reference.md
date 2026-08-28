@@ -42,6 +42,28 @@ An **investment account holds only instrument positions**; its cash side is a *s
 - **Money is an object**: `{"value": 1100, "currency": "EUR"}`. `value` is a plain decimal number, never scientific notation.
 - **Fractions, not percentages.** A `weight` of `0.6875` is 68.75 %. A `ttwror` of `0.0723` is 7.23 %. Multiply by 100 yourself for display.
 - **Returns and some computed fields can be `null`** when the model cannot define them for the interval — handle null, don't assume a number.
+- **A date is an ISO-8601 string**, `"2026-07-20"`. A **date-time** — a trade's `start` and `end` — is *local and offset-less*, `"2024-03-04T00:00:00"`, always with seconds. The model records no timezone, so the API invents none: this is deliberately not RFC 3339, and parsing it as UTC will shift it.
+
+## Computed collections
+
+Most collections are stored in the file. Some are **computed per request** — `trades` is the first. Two rules apply to all of them, and both cut against what the rest of the API teaches.
+
+**They have no ids.** A computed item carries no `uuid`, and there is no `…/trades/{id}` to fetch one back: an id minted for this request would not survive the next one. Address such an item by the filter that produced it (`…/instruments/{uuid}/trades?status=closed`). Ordering carries the weight identity otherwise would, so these collections sort stably — the same request twice returns the same list in the same order. They are also read-only: to change a computed item, change the stored records behind it.
+
+**They can half succeed.** Where the computation runs over independent units, the response is `200` with the results it has **plus a `warnings` array** naming each unit that failed and why. `problem+json` stays reserved for a *total* failure — a response is either a problem or a result, never both. `warnings` is always present, empty when nothing failed, so "nothing went wrong" is distinguishable from "this endpoint can't report problems". **A client that ignores `warnings` reads a partial list as a complete one** — check it, and when it isn't empty, say so in your answer instead of presenting a total as if it covered everything.
+
+## Query parameters are strict
+
+An endpoint accepts only the parameters documented for it, and one that documents none accepts none. Anything else is a `400 invalid-request` with an `unknown-parameter` entry in `errors` — never silently ignored. So a misspelling fails loudly rather than quietly returning the default; don't invent parameter names (`?from=`/`?to=` are not the date parameters), take them from the spec.
+
+Names and values follow two registers, and a query string shows both at once — `?costMethod=moving-average`, where the `=` is the boundary:
+
+| | Style | Examples |
+|---|---|---|
+| Query parameter names, JSON fields | `camelCase` | `reportingCurrency`, `costMethod`, `holdingPeriodDays` |
+| Path segments, enum values, error codes | `lower-kebab` | `cash-accounts`, `moving-average`, `per-lot`, `unknown-parameter` |
+
+One exception: a value that *names a field* is spelled like a field, so `?metrics=timeWeighted` switches on the `timeWeighted` object it is named after.
 
 ## Custom attributes
 
@@ -77,7 +99,7 @@ Errors come back as `application/problem+json` with a stable `type` URI, a `titl
 | Status | type (short) | Meaning & what to do |
 |---|---|---|
 | 400 | `invalid-request` | Body isn't a JSON object, or a query param is invalid (`errors` itemizes it). Fix and resend. |
-| 401 | `unauthorized` | No/!valid token. Body's `pairing_endpoint` says where to pair → run **pp-connect**. |
+| 401 | `unauthorized` | No/!valid token. Body's `pairingEndpoint` says where to pair → run **pp-connect**. |
 | 403 | `forbidden-host` | Not addressed as loopback. Use `127.0.0.1`. |
 | 403 | `browser-origin-forbidden` | You sent an `Origin` header. Don't. |
 | 404 | `not-found` | Unknown file, **file not enabled**, or unknown entity. See note ▼. |

@@ -56,11 +56,13 @@ check()
 |---|---|
 | `api <path>` | GET against the API, authenticated — **this is where ground truth comes from** |
 | `top_holdings [query]` | holding names, richest first |
+| `top_trades [query]` | trade instrument names, most profitable first |
 | `FILE_ID` | the first API-enabled file |
 | `expect_in_order <needle>…` | each needle appears, in this order |
 | `expect_match <regex> [message]` | the answer matches |
 | `expect_no_match <regex> [message]` | the answer does not match |
 | `money_pattern <number>` | regex tolerating any thousands separator |
+| `amount_pattern <number>` | as above, and any rounding — for a figure the agent adds up itself |
 | `percent_pattern <fraction>` | regex tolerating any rounding |
 | `fail <message>` | record a failure directly |
 

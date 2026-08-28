@@ -18,6 +18,8 @@ auth=(-H "Authorization: Bearer $TOKEN")
 
 Only **instruments**: the fields `name` (non-empty), `isin`, `wkn`, `tickerSymbol`, `note`, `currencyCode`, **plus its custom attributes** (a nested `attributes` object — see [Custom attributes](#custom-attributes) below). Everything else — prices, quote feeds, events, the retired flag — and **all** of cash/investment accounts is read-only in v1. There are **no create endpoints** (POST → 405); you can only edit instruments that already exist, and you cannot create new *attribute types* over the API (the user defines those in the app).
 
+**Computed resources can't be written at all.** Holdings, performance and trades (**pp-analyze**) are recomputed from the file on every request — there is nothing stored there to patch, and no `…/trades/{id}` to address. To change a trade, change the transactions behind it, which v1 doesn't expose either: that edit belongs in the app.
+
 ## ⚠️ Read this before your first write
 
 - **Writes are not saved.** A `PATCH`/`DELETE` changes the *in-memory* file and marks it dirty, exactly like editing in the UI. **There is no save endpoint.** When the task needs the change on disk, tell the user to press **Save** in Portfolio Performance.

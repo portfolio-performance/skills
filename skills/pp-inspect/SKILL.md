@@ -1,6 +1,6 @@
 ---
 name: pp-inspect
-description: Read data from a running Portfolio Performance desktop app over its local REST API — list the accessible portfolio files and read their instruments (securities) including custom attributes, cash accounts and investment accounts, by list or by UUID. Use when the task is to look up, list, find, or report on securities/instruments, their custom attributes (TER, ratings, flags…), or accounts in Portfolio Performance without changing anything. Requires a paired token (see pp-connect). For valuations/returns use pp-analyze; to change data use pp-edit.
+description: Read data from a running Portfolio Performance desktop app over its local REST API — list the accessible portfolio files and read their instruments (securities) including custom attributes, cash accounts and investment accounts, by list or by UUID. Use when the task is to look up, list, find, or report on securities/instruments, their custom attributes (TER, ratings, flags…), or accounts in Portfolio Performance without changing anything. Requires a paired token (see pp-connect). For valuations, returns and trades use pp-analyze; to change data use pp-edit.
 ---
 
 # pp-inspect — read instruments and accounts
@@ -45,7 +45,7 @@ curl -fsS "${auth[@]}" "$BASE/v1/files/main/instruments/8a1e0c4b-…"
 - `uuid`, `name`, `currencyCode` are always present. `currencyCode` may be **`null`** for a currency-less instrument (an index, a CPI series) — the key is there, the value can be null.
 - `isin`, `wkn`, `tickerSymbol`, `note` are **omitted entirely when not set** — test for presence, don't assume the key exists.
 - `attributes` — the instrument's **set** custom attributes, keyed by attribute id, values typed per the attribute's type (`ter` above is a `percent`, so `0.007` = 0.7 %). The key is **omitted entirely when none are set**. See [Custom attributes](#custom-attributes) below.
-- Prices, quote feeds and events are **not** exposed in v1.
+- Prices, quote feeds and events are **not** exposed in v1, and neither are transactions. For matched buy/sell pairs with profit and loss — the closest thing to a transaction history this API offers — use the trades endpoint in **pp-analyze**.
 
 ## Custom attributes
 

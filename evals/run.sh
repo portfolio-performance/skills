@@ -64,6 +64,19 @@ for item in sorted(items, key=lambda i: -i["weight"]):
 '
 }
 
+top_trades()
+{
+    api "/v1/files/$FILE_ID/trades${1:-}" | python3 -c '
+import sys, json
+items = json.load(sys.stdin)["items"]
+def profit(trade):
+    money = trade["profitLoss"]
+    return money["value"] if money else 0
+for item in sorted(items, key=lambda t: -profit(t)):
+    print(item["instrument"]["name"])
+'
+}
+
 if ! curl -fsS "$BASE/v1/openapi.yaml" >/dev/null 2>&1; then
     echo "no API on $BASE - start one first:" >&2
     echo "  <portfolio repo>/name.abuchen.portfolio.rest.tests/dev-server.sh" >&2
@@ -130,6 +143,34 @@ pattern = "[.,\u2009 ]?".join(groups)
 if fraction:
     pattern += "[.,]" + fraction
 print(pattern)
+' "$1"
+}
+
+# money_pattern's tolerant sibling: for a figure the agent computes itself
+# (a sum over trades), where it may round to two, one or no decimals.
+amount_pattern()
+{
+    python3 -c '
+import sys
+value = float(sys.argv[1])
+seen, alternatives = set(), []
+for digits in (2, 1, 0):
+    text = f"{round(value, digits):.{digits}f}"
+    if text in seen:
+        continue
+    seen.add(text)
+    integer, _, fraction = text.partition(".")
+    integer = integer.lstrip("-")
+    groups = []
+    while len(integer) > 3:
+        groups.insert(0, integer[-3:])
+        integer = integer[:-3]
+    groups.insert(0, integer)
+    pattern = "[.,\u2009 ]?".join(groups)
+    if fraction:
+        pattern += "[.,]" + fraction
+    alternatives.append(pattern)
+print("(" + "|".join(alternatives) + ")")
 ' "$1"
 }
 
