@@ -32,3 +32,7 @@ Drop these into a skills directory the agent loads (e.g. symlink or copy `skills
 
 - Portfolio Performance running, with the REST API enabled and at least one file enabled.
 - `curl`; `jq` is nice-to-have for the worked examples but not required.
+
+## Licence
+
+MIT — see [LICENSE](LICENSE).
