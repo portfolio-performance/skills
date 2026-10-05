@@ -151,7 +151,7 @@ curl -fsS "${auth[@]}" "$BASE/v1/files/main/trades?status=closed"
  "items":[
    {"status":"closed","direction":"long",
     "instrument":{"uuid":"8a1e…","name":"Apple Inc.","currencyCode":"USD"},
-    "portfolio":{"uuid":"1d3f…","name":"Broker Depot"},
+    "investmentAccount":{"uuid":"1d3f…","name":"Broker Depot"},
     "start":"2024-03-04T00:00:00","end":"2025-11-18T00:00:00",
     "shares":10,"transactionCount":2,
     "entryValue":{"value":1010.5,"currency":"EUR"},
