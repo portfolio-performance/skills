@@ -2,7 +2,7 @@
 
 Skills that let an AI agent drive the **[Portfolio Performance](https://www.portfolio-performance.info/) desktop app** through its local REST API — read instruments (with their custom attributes) and accounts, edit securities and their attributes, and compute holdings, performance and matched trades.
 
-They are [Claude Code skills](https://docs.claude.com/en/docs/claude-code/skills) (`SKILL.md` with `name`/`description` frontmatter), model-invoked by matching the task to each skill's description.
+They follow the open [Agent Skills](https://agentskills.io) format (a `SKILL.md` with `name`/`description` frontmatter), so any agent that supports skills can use them, including Claude Code, Codex, Cursor and GitHub Copilot. The agent picks a skill on its own when the task matches that skill's description.
 
 ## The set
 
@@ -26,7 +26,13 @@ The API is **loopback-only, off by default**, and serves only files the user has
 
 ## Install
 
-Drop these into a skills directory the agent loads (e.g. symlink or copy `skills/pp-*` into `~/.claude/skills/`).
+The quickest way is the [`skills`](https://skills.sh) CLI. It detects which agents you have installed and puts the skills in the right place for each one:
+
+```sh
+npx skills@latest add portfolio-performance/skills
+```
+
+To install by hand, copy or symlink `skills/pp-*` into your agent's skills directory (for example `~/.claude/skills/` for Claude Code). Install all four together: the other skills link to `pp-connect` for setup and shared reference material.
 
 ## Prerequisites
 
