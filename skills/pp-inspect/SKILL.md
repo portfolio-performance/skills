@@ -25,7 +25,7 @@ curl -fsS "${auth[@]}" "$BASE/v1/files"
 # {"items":[{"id":"5f3c…","alias":"main","label":"portfolio.xml","path":"/Users/me/portfolio.xml"}]}
 ```
 
-Use either the `id` or the `alias` as `{file}` below. Empty `items` → the app is up and you're authorized, but no file is **enabled** for the API; ask the user to enable one (Preferences → REST API). See the 404/409 notes in the reference before concluding a file is "missing".
+Use either the `id` or the `alias` as `{file}` below. Empty `items` → the app is up and you're authorized, but no file is **enabled** for the API; ask the user to enable one (Preferences → MCP Server & REST API). See the 404/409 notes in the reference before concluding a file is "missing".
 
 ## Instruments (securities)
 

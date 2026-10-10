@@ -22,7 +22,7 @@ Raw `curl` over loopback, using a small convention:
 - `PP_PORT` (default `5712`) and `PP_TOKEN`, base URL `http://127.0.0.1:$PP_PORT`.
 - Token resolved **env-first, dotfile-fallback** (`~/.config/portfolio-performance/rest-token`, mode 600).
 
-The API is **loopback-only, off by default**, and serves only files the user has **opened and enabled** in Preferences → REST API. The running server describes itself at `GET /v1/openapi.yaml` (unauthenticated), so the skills point agents at that live spec for the exact, drift-free contract — the prose here is orientation, the served spec is the truth.
+The API is **loopback-only, off by default**, and serves only files the user has **opened and enabled** in Preferences → MCP Server & REST API. The running server describes itself at `GET /v1/openapi.yaml` (unauthenticated), so the skills point agents at that live spec for the exact, drift-free contract — the prose here is orientation, the served spec is the truth.
 
 ## Install
 

@@ -12,7 +12,7 @@ That document describes the *running* server, so it can never drift from what is
 
 A **local** HTTP/JSON API into the *running* Portfolio Performance desktop app, so scripts and agents can read and edit the data of **open** portfolio files. It is:
 
-- **Loopback only** — `http://127.0.0.1:PORT` (`[::1]`, `localhost` too). Off by default; the user enables it in Preferences → REST API.
+- **Loopback only** — `http://127.0.0.1:PORT` (`[::1]`, `localhost` too). Off by default; the user enables it in Preferences → MCP Server & REST API.
 - **Per-client token** — every client pairs for its own bearer token (see pp-connect).
 - **A window onto the live app**, not a database. It serves only files that are **open and individually enabled**. Close the app and the API is gone.
 

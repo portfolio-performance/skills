@@ -41,7 +41,7 @@ The spec endpoint needs **no token**, so it is the cheapest liveness + discovery
 curl -fsS "$BASE/v1/openapi.yaml" | head -5
 ```
 
-- Connection refused → the app is not running, or the API is off. Ask the user to open Portfolio Performance and tick **Preferences → REST API → Enable REST API (localhost only)** (and, per file, **enable** the files they want you to reach). Nothing you can do over the wire enables it.
+- Connection refused → the app is not running, or the API is off. Ask the user to open Portfolio Performance and tick **Preferences → MCP Server & REST API → Enable MCP server and REST API (localhost only)** (and, per file, **enable** the files they want you to reach). Nothing you can do over the wire enables it.
 - `403` → you are not addressing it as loopback, or you sent an `Origin` header. Use `127.0.0.1`, no `Origin`.
 - `200` (YAML) → the API is up. Fetch the whole document any time you need the authoritative contract.
 
@@ -96,11 +96,11 @@ curl -fsS -H "Authorization: Bearer $TOKEN" "$BASE/v1/files"
 # → {"items":[{"id":"…","alias":"…","label":"…","path":"…"}]}
 ```
 
-An empty `items` list means the app is running and you're authorized, but the user hasn't **enabled** any file for the API. Ask them to enable one in Preferences → REST API. From here, hand off to **pp-inspect / pp-edit / pp-analyze**.
+An empty `items` list means the app is running and you're authorized, but the user hasn't **enabled** any file for the API. Ask them to enable one in Preferences → MCP Server & REST API. From here, hand off to **pp-inspect / pp-edit / pp-analyze**.
 
 ## When a later call 401s again
 
-The token was revoked (the user can revoke any client at any time in Preferences → REST API), or it was a session token and the app was restarted. Delete the stale dotfile and re-pair:
+The token was revoked (the user can revoke any client at any time in Preferences → MCP Server & REST API), or it was a session token and the app was restarted. Delete the stale dotfile and re-pair:
 
 ```bash
 rm -f ~/.config/portfolio-performance/rest-token
@@ -108,4 +108,4 @@ rm -f ~/.config/portfolio-performance/rest-token
 
 ## Headless / no one at the screen
 
-If nobody can approve a prompt, the user mints a token manually in **Preferences → REST API → Add client** and hands it to you. Store it exactly as in Step 3; skip Steps 1–2.
+If nobody can approve a prompt, the user mints a token manually in **Preferences → MCP Server & REST API → Add client** and hands it to you. Store it exactly as in Step 3; skip Steps 1–2.
